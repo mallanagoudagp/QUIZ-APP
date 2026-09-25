@@ -29,9 +29,14 @@ export default function App() {
   const [reviewing, setReviewing] = useState(false);
   const [activeView, setActiveView] = useState("study");
 
-  const learnerContext = profile.hasHistory
-    ? { topics: profile.topics, levels: profile.levels }
-    : undefined;
+  const learnerContext = profile.hasHistory ? profile.promptContext : undefined;
+
+  function handleAnswer(block, wasCorrect) {
+    profile.recordAnswer({
+      ...block,
+      subject: block.subject || result?.title || "Previously studied"
+    }, wasCorrect);
+  }
 
   // Restore last session on load.
   useEffect(() => {
@@ -250,7 +255,7 @@ export default function App() {
                 </button>
               )}
             </div>
-            <ResultView result={result} droppedCount={droppedCount} onAnswer={profile.recordAnswer} />
+          <ResultView result={result} droppedCount={droppedCount} onAnswer={handleAnswer} />
           </>
         )}
 

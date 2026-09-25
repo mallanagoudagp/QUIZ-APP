@@ -9,11 +9,12 @@
 
 create table if not exists public.learner_topics (
   user_id    uuid        not null references auth.users (id) on delete cascade,
+  subject    text        not null default 'Previously studied',
   topic      text        not null,
   attempts   integer     not null default 0,
   correct    integer     not null default 0,
   updated_at timestamptz not null default now(),
-  primary key (user_id, topic)
+  primary key (user_id, subject, topic)
 );
 
 alter table public.learner_topics enable row level security;

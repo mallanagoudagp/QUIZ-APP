@@ -16,6 +16,18 @@ function levelForStats(stats) {
   return "advanced";
 }
 
+const topicKey = (subject, topic) => JSON.stringify([subject, topic]);
+
+function normalizeTopicStats(source = {}) {
+  const normalized = {};
+  for (const [oldKey, stats] of Object.entries(source)) {
+    const subject = stats.subject || "Previously studied";
+    const topic = stats.topic || oldKey;
+    normalized[topicKey(subject, topic)] = { ...stats, subject, topic };
+  }
+  return normalized;
+}
+
 /**
  * Tracks per-topic accuracy from quiz behavior — never from a profile form,
  * since the free-form text box is the only input the assignment allows.
@@ -33,17 +45,19 @@ export function useLearnerProfile(user) {
   const [topics, setTopics] = useState({}); // { [topic]: {attempts, correct} }
   const [missed, setMissed] = useState({}); // { [blockId]: timesWrong }
   const [loading, setLoading] = useState(cloud);
+  const [ready, setReady] = useState(false);
 
   // Load from whichever store is active. Re-runs when signing in/out.
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      setReady(false);
       if (cloud) {
         setLoading(true);
         const { data, error } = await supabase
           .from("learner_topics")
-          .select("topic, attempts, correct")
+          .select("subject, topic, attempts, correct")
           .eq("user_id", user.id);
         if (cancelled) return;
         if (error) {
@@ -52,7 +66,12 @@ export function useLearnerProfile(user) {
         } else {
           const next = {};
           for (const row of data) {
-            next[row.topic] = { attempts: row.attempts, correct: row.correct };
+            next[topicKey(row.subject || "Previously studied", row.topic)] = {
+              subject: row.subject || "Previously studied",
+              topic: row.topic,
+              attempts: row.attempts,
+              correct: row.correct
+            };
           }
           setTopics(next);
         }
@@ -64,11 +83,13 @@ export function useLearnerProfile(user) {
         for (const row of reviews || []) reviewMap[row.block_id] = { block: row.block, box: row.box, dueAt: row.due_at };
         setMissed(reviewMap);
         setLoading(false);
+        setReady(true);
       } else {
         const local = loadLearnerModel();
-        setTopics(local.topics || {});
+        setTopics(normalizeTopicStats(local.topics));
         setMissed(local.missed || {});
         setLoading(false);
+        setReady(true);
       }
     }
 
@@ -80,14 +101,22 @@ export function useLearnerProfile(user) {
 
   // Guest mode: persist to localStorage whenever the model changes.
   useEffect(() => {
-    if (!cloud) saveLearnerModel({ topics, missed });
-  }, [cloud, topics, missed]);
+    if (!cloud && ready) saveLearnerModel({ topics, missed });
+  }, [cloud, ready, topics, missed]);
 
   const recordAnswer = useCallback(
     (block, wasCorrect) => {
+      const subject = block.subject?.trim() || "Previously studied";
+      const topic = block.topic || "General";
+      const key = topicKey(subject, topic);
+      const scoredBlock = { ...block, subject, topic };
       setTopics((prev) => {
-        const t = prev[block.topic] || { attempts: 0, correct: 0 };
-        const nextStat = { attempts: t.attempts + 1, correct: t.correct + (wasCorrect ? 1 : 0) };
+        const t = prev[key] || { subject, topic, attempts: 0, correct: 0 };
+        const nextStat = {
+          ...t,
+          attempts: t.attempts + 1,
+          correct: t.correct + (wasCorrect ? 1 : 0)
+        };
 
         if (cloud) {
           supabase
@@ -95,29 +124,30 @@ export function useLearnerProfile(user) {
             .upsert(
               {
                 user_id: user.id,
-                topic: block.topic,
+                subject,
+                topic,
                 attempts: nextStat.attempts,
                 correct: nextStat.correct,
                 updated_at: new Date().toISOString()
               },
-              { onConflict: "user_id,topic" }
+              { onConflict: "user_id,subject,topic" }
             )
             .then(({ error }) => {
               if (error) console.error("Failed to sync topic stat:", error.message);
             });
         }
 
-        return { ...prev, [block.topic]: nextStat };
+        return { ...prev, [key]: nextStat };
       });
 
       setMissed((prev) => {
         const next = { ...prev };
-        const id = reviewKey(block);
-        const review = nextReview(block, next[id], wasCorrect);
+        const id = reviewKey(scoredBlock);
+        const review = nextReview(scoredBlock, next[id], wasCorrect);
         next[id] = review;
         if (cloud) {
           supabase.from("learner_reviews").upsert({
-            user_id: user.id, block_id: id, block, box: review.box, due_at: review.dueAt
+            user_id: user.id, block_id: id, block: scoredBlock, box: review.box, due_at: review.dueAt
           }, { onConflict: "user_id,block_id" }).then(({ error }) => {
             if (error) console.error("Failed to sync review schedule:", error.message);
           });
@@ -144,14 +174,30 @@ export function useLearnerProfile(user) {
 
   const levels = useMemo(() => {
     const out = {};
-    for (const [topic, stats] of Object.entries(topics)) {
-      out[topic] = levelForStats(stats);
+    for (const [key, stats] of Object.entries(topics)) {
+      out[key] = levelForStats(stats);
     }
     return out;
+  }, [topics]);
+
+  const promptContext = useMemo(() => {
+    const combined = {};
+    for (const [, stats] of Object.entries(topics)) {
+      const name = stats.topic || "General";
+      const current = combined[name] || { attempts: 0, correct: 0 };
+      combined[name] = {
+        attempts: current.attempts + stats.attempts,
+        correct: current.correct + stats.correct
+      };
+    }
+    const promptLevels = Object.fromEntries(
+      Object.entries(combined).map(([topic, stats]) => [topic, levelForStats(stats)])
+    );
+    return { topics: combined, levels: promptLevels };
   }, [topics]);
 
   const hasHistory = Object.keys(topics).length > 0;
   const dueReviews = dueReviewBlocks(missed);
 
-  return { topics, missed, levels, recordAnswer, reset, hasHistory, loading, cloud, dueReviews };
+  return { topics, missed, levels, promptContext, recordAnswer, reset, hasHistory, loading, cloud, dueReviews };
 }

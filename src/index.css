@@ -621,6 +621,12 @@ input[type="email"]:focus {
   overflow: hidden;
 }
 
+.learner-progress__subjects {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .learner-progress__section-heading {
   display: flex;
   align-items: center;

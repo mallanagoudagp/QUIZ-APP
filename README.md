@@ -130,6 +130,8 @@ Open **Your progress** from the app navigation to see the learning dashboard wit
 
 ### Optional accounts (Supabase)
 
+- Progress is grouped by study-set title (subject), then topic. For an existing Supabase project, run `supabase/migrations/20260925_learner_topic_subjects.sql` in the SQL editor to enable subject-specific topic scores; existing rows are retained under **Previously studied**.
+
 - **Guest mode (default):** no env vars set → no sign-in UI, learner profile lives in `localStorage`, exactly like the original version.
 - **Signed in:** set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env` and run `supabase/schema.sql` once in your Supabase project's SQL editor. A "Sign in" button appears; sign-in is passwordless (magic link email). Once signed in, the per-topic accuracy that drives levels is read from and written to the `learner_topics` table instead of localStorage, so it follows the account across devices/browsers.
 - Signed-in accounts sync per-topic accuracy, scheduled review items and the current study set. Guest accounts keep these locally.

@@ -6,8 +6,13 @@ const LEVEL_DETAILS = {
 
 export default function LearnerProgress({ topics, levels, hasHistory, dueCount = 0 }) {
   const rows = Object.entries(topics || {}).sort((a, b) =>
-    a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
+    (a[1].topic || a[0]).localeCompare(b[1].topic || b[0], undefined, { sensitivity: "base" })
   );
+  const subjects = Object.entries(rows.reduce((groups, [key, stats]) => {
+    const subject = stats.subject || "Previously studied";
+    (groups[subject] ||= []).push([key, stats]);
+    return groups;
+  }, {})).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   const totals = rows.reduce((sum, [, stats]) => ({
     attempts: sum.attempts + stats.attempts,
     correct: sum.correct + stats.correct
@@ -62,41 +67,51 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
             </article>
           </div>
 
-          <section className="learner-progress__section panel" aria-labelledby="topic-progress-heading">
-            <div className="learner-progress__section-heading">
-              <div>
-                <h3 id="topic-progress-heading">Progress by topic</h3>
-                <p>Accuracy determines the level used for future questions and explanations.</p>
-              </div>
-              <span className="learner-progress__topic-count">{rows.length} topics</span>
-            </div>
-          <div className="learner-progress__table-wrap">
-            <table className="learner-progress__table">
-              <thead>
-                <tr><th scope="col">Topic</th><th scope="col">Score</th><th scope="col">Accuracy</th><th scope="col">Current level</th></tr>
-              </thead>
-              <tbody>
-                {rows.map(([topic, stats]) => {
-                  const percent = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
-                  const level = levels?.[topic] || "beginner";
-                  return (
-                    <tr key={topic}>
-                      <th scope="row">{topic}</th>
-                      <td>{stats.correct}/{stats.attempts}</td>
-                      <td>
-                        <div className="learner-progress__accuracy">
-                          <span>{percent}%</span>
-                          <span className="learner-progress__bar" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
-                        </div>
-                      </td>
-                      <td><span className={`level-pill level-pill--${level}`}>{level}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="learner-progress__subjects" aria-label="Progress grouped by subject">
+            {subjects.map(([subject, subjectRows], index) => {
+              const subjectAttempts = subjectRows.reduce((sum, [, stats]) => sum + stats.attempts, 0);
+              const subjectCorrect = subjectRows.reduce((sum, [, stats]) => sum + stats.correct, 0);
+              const subjectAccuracy = subjectAttempts ? Math.round((subjectCorrect / subjectAttempts) * 100) : 0;
+              const headingId = `subject-progress-${index}`;
+              return (
+                <section className="learner-progress__section panel" key={subject} aria-labelledby={headingId}>
+                  <div className="learner-progress__section-heading">
+                    <div>
+                      <h3 id={headingId}>{subject}</h3>
+                      <p>{subjectRows.length} topic{subjectRows.length === 1 ? "" : "s"} · {subjectCorrect}/{subjectAttempts} correct · {subjectAccuracy}% accuracy</p>
+                    </div>
+                    <span className="learner-progress__topic-count">{subjectRows.length} topics</span>
+                  </div>
+                  <div className="learner-progress__table-wrap">
+                    <table className="learner-progress__table">
+                      <thead>
+                        <tr><th scope="col">Topic</th><th scope="col">Score</th><th scope="col">Accuracy</th><th scope="col">Current level</th></tr>
+                      </thead>
+                      <tbody>
+                        {subjectRows.map(([key, stats]) => {
+                          const percent = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+                          const level = levels?.[key] || "beginner";
+                          return (
+                            <tr key={key}>
+                              <th scope="row">{stats.topic || key}</th>
+                              <td>{stats.correct}/{stats.attempts}</td>
+                              <td>
+                                <div className="learner-progress__accuracy">
+                                  <span>{percent}%</span>
+                                  <span className="learner-progress__bar" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+                                </div>
+                              </td>
+                              <td><span className={`level-pill level-pill--${level}`}>{level}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              );
+            })}
           </div>
-          </section>
           <div className="learner-progress__levels">
             <div><h3>How adaptive levels work</h3><p>Quiz choices are scored automatically. Recall recalculates your level for each topic from your accuracy.</p></div>
             <ul>
