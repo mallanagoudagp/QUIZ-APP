@@ -4,13 +4,13 @@
 
 Built for the Flam Frontend Internship assignment (React + LLM, structured output, robust handling of bad AI output).
 
-**Live demo:** Not deployed · **Screen recording:** Not recorded
+**Live demo:** [Recall on Vercel](https://quizapp-ruddy-two.vercel.app/) · **Deployment:** Vercel · **Screen recording:** Not recorded
 
 ---
 
 ## Status
 
-The app implements the feature checklist below and defaults to a **mock LLM provider** so it runs without an API key. The live demo and screen recording remain release steps.
+The app is deployed on Vercel, and the sign-in option is enabled with Supabase environment variables. The app defaults to a **mock LLM provider** unless `LLM_PROVIDER` is configured for a live provider. Remaining release work is to verify the magic-link and cloud-sync flow and record a short demo.
 
 **Core**
 - [x] Free-form text input → backend proxy → LLM → validated JSON → UI
@@ -182,7 +182,8 @@ after running `supabase/schema.sql` in your project's SQL editor.
 > `npm start` uses `concurrently` to run the Vite dev server and the local
 > Express API together. In production, the same request-handling logic in
 > `server/generate.js` runs as a Vercel serverless function via `api/generate.js`
-> — deploy with `vercel`, set the same env vars in the project settings, and
+> — the GitHub `main` branch is connected to Vercel for deployments. Set the
+> required environment variables in the Vercel project settings, and
 > Vite's dev-only proxy in `vite.config.js` is simply unused in prod (Vercel
 > routes `/api/*` to the function automatically).
 
@@ -281,7 +282,8 @@ _Add anything else you find while testing._
 
 ## Remaining release steps
 
-- Deploy the app and paste the live demo URL above.
+- Verify Supabase magic-link sign-in end to end. Set the Vercel URL in Supabase Auth URL Configuration and run `supabase/schema.sql` if it has not already been applied.
+- Confirm the production LLM provider works. The mock provider works without an API key; Gemini or Groq needs the matching `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL` values in Vercel.
 - Record a short demo that exercises generation, scheduled review, refinement and recovery from malformed output.
 
 
