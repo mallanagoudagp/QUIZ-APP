@@ -5,6 +5,7 @@ import LoadingState from "./components/LoadingState";
 import ErrorState from "./components/ErrorState";
 import AuthPanel from "./components/AuthPanel";
 import ReviewDue from "./components/ReviewDue";
+import LearnerProgress from "./components/LearnerProgress";
 import { useGenerate } from "./hooks/useGenerate";
 import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { useLearnerProfile } from "./hooks/useLearnerProfile";
@@ -176,6 +177,13 @@ export default function App() {
             </p>
           </div>
         </section>
+
+        <LearnerProgress
+          topics={profile.topics}
+          levels={profile.levels}
+          hasHistory={profile.hasHistory}
+          dueCount={profile.dueReviews.length}
+        />
 
         <PromptInput
           onGenerate={handleGenerate}

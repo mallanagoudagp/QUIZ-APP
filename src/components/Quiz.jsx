@@ -24,6 +24,7 @@ export default function Quiz({ questions, onAnswer }) {
   }, [questions]);
 
   const current = pool[index];
+  const answeredCount = Math.min(pool.length, index + (selected !== null ? 1 : 0));
 
   useEffect(() => {
     function onKey(e) {
@@ -103,7 +104,7 @@ export default function Quiz({ questions, onAnswer }) {
   return (
     <div className="quiz">
       <p className="deck__progress">
-        Question {index + 1} of {pool.length} · {current.topic}
+        Question {index + 1} of {pool.length} · {current.topic} · Score {score}/{answeredCount}
       </p>
       <p className="quiz__question">{current.question}</p>
       <ul className="quiz__options">

@@ -498,6 +498,121 @@ input[type="email"]:focus {
   flex-shrink: 0;
 }
 
+.learner-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.learner-progress__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.learner-progress__header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.learner-progress__intro,
+.learner-progress__empty,
+.learner-progress__next,
+.learner-progress__levels p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.learner-progress__total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.learner-progress__total strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.learner-progress__total span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.learner-progress__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.learner-progress__table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.learner-progress__table th,
+.learner-progress__table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.learner-progress__table thead th {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.learner-progress__table tbody th {
+  font-weight: 600;
+}
+
+.level-pill {
+  display: inline-flex;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.level-pill--beginner {
+  color: var(--wrong);
+  background: var(--wrong-bg);
+}
+
+.level-pill--intermediate {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+[data-theme="dark"] .level-pill--intermediate {
+  color: #fbbf24;
+}
+
+.level-pill--advanced {
+  color: var(--correct);
+  background: var(--correct-bg);
+}
+
+.learner-progress__levels ul {
+  margin: 7px 0 0;
+  padding-left: 20px;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.learner-progress__next {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
 .auth-status {
   display: inline-flex;
   align-items: center;
