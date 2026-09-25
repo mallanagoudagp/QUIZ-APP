@@ -10,7 +10,7 @@ Built for the Flam Frontend Internship assignment (React + LLM, structured outpu
 
 ## Status
 
-The app is deployed on Vercel, and the sign-in option is enabled with Supabase environment variables. The app defaults to a **mock LLM provider** unless `LLM_PROVIDER` is configured for a live provider. Remaining release work is to verify the magic-link and cloud-sync flow and record a short demo.
+The app is deployed on Vercel, and email/password sign-in is enabled with Supabase environment variables. The app defaults to a **mock LLM provider** unless `LLM_PROVIDER` is configured for a live provider. Remaining release work is to verify the account and cloud-sync flow and record a short demo.
 
 **Core**
 - [x] Free-form text input → backend proxy → LLM → validated JSON → UI
@@ -133,7 +133,8 @@ Open **Your progress** from the app navigation to see the learning dashboard wit
 - Progress is grouped by study-set title (subject), then topic. For an existing Supabase project, run `supabase/migrations/20260925_learner_topic_subjects.sql` in the SQL editor to enable subject-specific topic scores; existing rows are retained under **Previously studied**.
 
 - **Guest mode (default):** no env vars set → no sign-in UI, learner profile lives in `localStorage`, exactly like the original version.
-- **Signed in:** set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env` and run `supabase/schema.sql` once in your Supabase project's SQL editor. A "Sign in" button appears; sign-in is passwordless (magic link email). Once signed in, the per-topic accuracy that drives levels is read from and written to the `learner_topics` table instead of localStorage, so it follows the account across devices/browsers.
+- **Signed in:** set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env` and run `supabase/schema.sql` once in your Supabase project's SQL editor. A "Sign in" button appears with email/password sign-in, account creation, and password reset. If email confirmation is enabled in Supabase, new users confirm their address before signing in. Existing magic-link users can use **Forgot password?** to set a password for their account. Once signed in, the per-topic accuracy that drives levels is read from and written to the `learner_topics` table instead of localStorage, so it follows the account across devices/browsers.
+- In Supabase Auth **URL Configuration**, use a publicly accessible production URL as the Site URL and allow the local development URL (`http://localhost:5173/**`). Sign-up and password recovery return to the origin where the flow started; protected Vercel preview deployments require Vercel team access and should not be used as the public Site URL.
 - Signed-in accounts sync per-topic accuracy, scheduled review items and the current study set. Guest accounts keep these locally.
 - **Security:** the Supabase anon key is safe to expose in the browser by design. What actually protects one user's data from another's is Row Level Security, defined in `supabase/schema.sql` — every policy checks `auth.uid() = user_id`.
 
@@ -211,11 +212,11 @@ recall/
 │   │   ├── SummaryBlock.jsx
 │   │   ├── ErrorState.jsx        # shared error + retry UI
 │   │   ├── LoadingState.jsx
-│   │   ├── AuthPanel.jsx         # magic-link sign-in form (only rendered if Supabase is configured)
+│   │   ├── AuthPanel.jsx         # email/password sign-in and account creation
 │   │   └── ReviewDue.jsx         # scheduled review quiz
 │   ├── hooks/
 │   │   ├── useGenerate.js        # request lifecycle: loading/slow/error, abort, stale-id guard
-│   │   ├── useSupabaseAuth.js    # magic-link session state; no-ops without Supabase configured
+│   │   ├── useSupabaseAuth.js    # email/password session state; no-ops without Supabase configured
 │   │   ├── useCloudSession.js    # current-session sync for signed-in users
 │   │   └── useLearnerProfile.js  # per-topic accuracy + level; cloud (Supabase) or local fallback
 │   ├── lib/
@@ -284,7 +285,7 @@ _Add anything else you find while testing._
 
 ## Remaining release steps
 
-- Verify Supabase magic-link sign-in end to end. Set the Vercel URL in Supabase Auth URL Configuration and run `supabase/schema.sql` if it has not already been applied.
+- Verify Supabase email/password sign-in and account creation end to end. Confirm the Email provider is enabled in Supabase Auth and run `supabase/schema.sql` if it has not already been applied.
 - Confirm the production LLM provider works. The mock provider works without an API key; Gemini or Groq needs the matching `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL` values in Vercel.
 - Record a short demo that exercises generation, scheduled review, refinement and recovery from malformed output.
 

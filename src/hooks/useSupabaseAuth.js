@@ -9,6 +9,7 @@ import { supabase, supabaseEnabled } from "../lib/supabaseClient";
 export function useSupabaseAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(supabaseEnabled);
+  const [recoveryRequested, setRecoveryRequested] = useState(false);
 
   useEffect(() => {
     if (!supabaseEnabled) return;
@@ -21,9 +22,10 @@ export function useSupabaseAuth() {
       }
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (event === "PASSWORD_RECOVERY") setRecoveryRequested(true);
     });
 
     return () => {
@@ -32,17 +34,47 @@ export function useSupabaseAuth() {
     };
   }, []);
 
-  const signInWithEmail = useCallback(async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
+  const signInWithPassword = useCallback(async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }, []);
+
+  const signUpWithPassword = useCallback(async (email, password) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
+      password,
       options: { emailRedirectTo: window.location.origin }
     });
     if (error) throw error;
+    return { needsConfirmation: !data.session };
+  }, []);
+
+  const sendPasswordReset = useCallback(async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    setRecoveryRequested(false);
   }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
-  return { enabled: supabaseEnabled, user, loading, signInWithEmail, signOut };
+  return {
+    enabled: supabaseEnabled,
+    user,
+    loading,
+    recoveryRequested,
+    signInWithPassword,
+    signUpWithPassword,
+    sendPasswordReset,
+    updatePassword,
+    signOut
+  };
 }

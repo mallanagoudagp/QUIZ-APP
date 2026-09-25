@@ -64,6 +64,10 @@ export default function App() {
     localStorage.setItem("recall.theme", dark ? "dark" : "light");
   }, [dark]);
 
+  useEffect(() => {
+    if (auth.recoveryRequested) setShowAuth(true);
+  }, [auth.recoveryRequested]);
+
   function handleGenerate(text, simulate) {
     setHistory([]);
     run({ prompt: text, learnerContext, simulate });
@@ -152,7 +156,14 @@ export default function App() {
           <div className="auth-overlay" onMouseDown={(event) => {
             if (event.target === event.currentTarget) setShowAuth(false);
           }}>
-            <AuthPanel onSignIn={auth.signInWithEmail} onDismiss={() => setShowAuth(false)} />
+            <AuthPanel
+              onSignIn={auth.signInWithPassword}
+              onSignUp={auth.signUpWithPassword}
+              onResetPassword={auth.sendPasswordReset}
+              onUpdatePassword={auth.updatePassword}
+              recoveryRequested={auth.recoveryRequested}
+              onDismiss={() => setShowAuth(false)}
+            />
           </div>
         )}
 
