@@ -27,6 +27,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [history, setHistory] = useState([]); // for refine undo
   const [reviewing, setReviewing] = useState(false);
+  const [activeView, setActiveView] = useState("study");
 
   const learnerContext = profile.hasHistory
     ? { topics: profile.topics, levels: profile.levels }
@@ -150,6 +151,34 @@ export default function App() {
           </div>
         )}
 
+        <nav className="app-nav" aria-label="Main navigation">
+          <button
+            type="button"
+            className={`app-nav__item ${activeView === "study" ? "app-nav__item--active" : ""}`}
+            aria-current={activeView === "study" ? "page" : undefined}
+            onClick={() => setActiveView("study")}
+          >
+            <span aria-hidden="true">✎</span> Study
+          </button>
+          <button
+            type="button"
+            className={`app-nav__item ${activeView === "progress" ? "app-nav__item--active" : ""}`}
+            aria-current={activeView === "progress" ? "page" : undefined}
+            onClick={() => setActiveView("progress")}
+          >
+            <span aria-hidden="true">▥</span> Your progress
+            {profile.hasHistory && <span className="app-nav__count">{Object.keys(profile.topics).length}</span>}
+          </button>
+        </nav>
+
+        {activeView === "progress" ? (
+          <LearnerProgress
+            topics={profile.topics}
+            levels={profile.levels}
+            hasHistory={profile.hasHistory}
+            dueCount={profile.dueReviews.length}
+          />
+        ) : <>
         <section
           className={`personalization-banner ${
             auth.user ? "personalization-banner--active" : "personalization-banner--guest"
@@ -177,13 +206,6 @@ export default function App() {
             </p>
           </div>
         </section>
-
-        <LearnerProgress
-          topics={profile.topics}
-          levels={profile.levels}
-          hasHistory={profile.hasHistory}
-          dueCount={profile.dueReviews.length}
-        />
 
         <PromptInput
           onGenerate={handleGenerate}
@@ -237,6 +259,7 @@ export default function App() {
             Paste some notes or a topic above to generate your first study set.
           </p>
         )}
+        </>}
       </main>
     </div>
   );

@@ -111,7 +111,7 @@ Validation lives in `src/lib/validateResult.js`, separate from the UI so it's ea
 
 There are no profile forms — the only inputs are the text box and the learner's own behavior inside the app.
 
-The **Your learning progress** panel makes this visible in the app: it shows overall correct answers and, for each topic, correct/attempted, accuracy, and the current level. The quiz displays its score after each answer. Levels are automatic: below 40% is beginner, 40–74% is intermediate, and 75% or higher is advanced. Beginner topics receive fundamentals-first instructions and easier questions; advanced topics receive harder questions and more concise, technical explanations. There is no manual score or difficulty entry; scores come from answered multiple-choice questions.
+Open **Your progress** from the app navigation to see the learning dashboard without interrupting the Study page. It shows overall accuracy, topics practiced, level counts, reviews due, and a per-topic table with correct/attempted, accuracy, and current level. The quiz displays its score after each answer. Levels are automatic: below 40% is beginner, 40–74% is intermediate, and 75% or higher is advanced. Beginner topics receive fundamentals-first instructions and easier questions; advanced topics receive harder questions and more concise, technical explanations. There is no manual score or difficulty entry; scores come from answered multiple-choice questions.
 
 **Learner model** (`src/hooks/useLearnerProfile.js`, persisted to `localStorage` for guests and Supabase for signed-in users):
 

@@ -184,6 +184,59 @@ button, input, textarea, select {
   gap: 22px;
 }
 
+.app-nav {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+}
+
+.app-nav__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.app-nav__item:hover {
+  color: var(--ink);
+  background: var(--paper-subtle);
+}
+
+.app-nav__item--active,
+.app-nav__item--active:hover {
+  color: var(--primary-contrast);
+  background: var(--primary-gradient);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-nav__count {
+  min-width: 23px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--primary-hover);
+  text-align: center;
+  font-size: 0.76rem;
+}
+
+.app-nav__item--active .app-nav__count {
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+
 /* ---- Panels & Cards --------------------------------------------------- */
 .panel {
   background: var(--card);
@@ -501,7 +554,7 @@ input[type="email"]:focus {
 .learner-progress {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
 }
 
 .learner-progress__header {
@@ -513,7 +566,113 @@ input[type="email"]:focus {
 
 .learner-progress__header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.8rem;
+}
+
+.learner-progress__eyebrow {
+  margin: 0 0 5px;
+  color: var(--primary-hover);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.learner-progress__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.learner-progress__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 134px;
+  padding: 18px;
+}
+
+.learner-progress__stat-label {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.learner-progress__stat strong {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+.learner-progress__stat strong small {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.learner-progress__stat-note {
+  margin-top: auto;
+  color: var(--ink-faint);
+  font-size: 0.73rem;
+  line-height: 1.4;
+}
+
+.learner-progress__section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.learner-progress__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+}
+
+.learner-progress__section-heading h3,
+.learner-progress__levels h3,
+.learner-progress__empty h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.learner-progress__section-heading p {
+  margin: 3px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.learner-progress__topic-count {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.learner-progress__empty {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.learner-progress__empty-icon {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 12px;
+  place-items: center;
+  border-radius: 15px;
+  background: var(--correct-bg);
+  color: var(--primary-hover);
+  font-size: 1.4rem;
+}
+
+.learner-progress__empty p {
+  max-width: 490px;
+  margin: 6px auto 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
 }
 
 .learner-progress__intro,
@@ -558,6 +717,16 @@ input[type="email"]:focus {
 .learner-progress__table td {
   padding: 9px 8px;
   border-bottom: 1px solid var(--line);
+}
+
+.learner-progress__table th:first-child,
+.learner-progress__table td:first-child {
+  padding-left: 22px;
+}
+
+.learner-progress__table th:last-child,
+.learner-progress__table td:last-child {
+  padding-right: 22px;
 }
 
 .learner-progress__table thead th {
@@ -607,10 +776,86 @@ input[type="email"]:focus {
   font-size: 0.84rem;
 }
 
+.learner-progress__levels {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-subtle);
+}
+
+.learner-progress__levels p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.learner-progress__accuracy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 115px;
+}
+
+.learner-progress__bar {
+  display: block;
+  width: 54px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--line);
+}
+
+.learner-progress__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-gradient);
+}
+
 .learner-progress__next {
   margin-top: 0;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+}
+
+@media (max-width: 700px) {
+  .learner-progress__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .app-nav__item {
+    flex: 1;
+    padding-inline: 9px;
+    font-size: 0.86rem;
+  }
+
+  .learner-progress__stats {
+    gap: 8px;
+  }
+
+  .learner-progress__stat {
+    min-height: 120px;
+    padding: 14px;
+  }
+
+  .learner-progress__stat strong {
+    font-size: 1.5rem;
+  }
+
+  .learner-progress__header h2 {
+    font-size: 1.55rem;
+  }
+
+  .learner-progress__section-heading {
+    align-items: flex-start;
+    padding-inline: 14px;
+  }
+
+  .learner-progress__table {
+    min-width: 490px;
+  }
 }
 
 .auth-status {

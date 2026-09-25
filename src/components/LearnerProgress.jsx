@@ -13,30 +13,63 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
     correct: sum.correct + stats.correct
   }), { attempts: 0, correct: 0 });
   const overall = totals.attempts ? Math.round((totals.correct / totals.attempts) * 100) : 0;
+  const levelsSummary = rows.reduce((summary, [topic]) => {
+    const level = levels?.[topic] || "beginner";
+    summary[level] += 1;
+    return summary;
+  }, { beginner: 0, intermediate: 0, advanced: 0 });
 
   return (
-    <section className="learner-progress panel" aria-label="Your learning progress">
+    <section className="learner-progress" aria-label="Your learning progress">
       <div className="learner-progress__header">
         <div>
+          <p className="learner-progress__eyebrow">PERSONALIZED STUDY DASHBOARD</p>
           <h2>Your learning progress</h2>
           <p className="learner-progress__intro">
-            Quiz choices are scored automatically. Accuracy is tracked separately for each topic.
+            See what you’ve practiced, where you’re improving, and how your next study set adapts.
           </p>
         </div>
-        {hasHistory && (
-          <div className="learner-progress__total">
-            <strong>{totals.correct}/{totals.attempts}</strong>
-            <span>correct · {overall}% overall</span>
-          </div>
-        )}
       </div>
 
       {!hasHistory ? (
-        <p className="learner-progress__empty">
-          Generate a study set, open its Quiz tab, and answer the multiple-choice questions. Each answer builds your topic scores. Your next generation will use those scores automatically.
-        </p>
+        <div className="learner-progress__empty panel">
+          <span className="learner-progress__empty-icon" aria-hidden="true">▥</span>
+          <h3>Your progress will show up here</h3>
+          <p>Generate a study set, open its Quiz tab, and answer the multiple-choice questions. Recall scores every answer by topic. Your next generation will use those scores automatically.</p>
+        </div>
       ) : (
         <>
+          <div className="learner-progress__stats" aria-label="Progress summary">
+            <article className="learner-progress__stat panel">
+              <span className="learner-progress__stat-label">Overall accuracy</span>
+              <strong>{overall}<small>%</small></strong>
+              <span className="learner-progress__stat-note">{totals.correct} correct out of {totals.attempts} answers</span>
+            </article>
+            <article className="learner-progress__stat panel">
+              <span className="learner-progress__stat-label">Topics practiced</span>
+              <strong>{rows.length}</strong>
+              <span className="learner-progress__stat-note">Each topic has its own adaptive level</span>
+            </article>
+            <article className="learner-progress__stat panel">
+              <span className="learner-progress__stat-label">Current levels</span>
+              <strong>{levelsSummary.beginner}<small> beginner</small></strong>
+              <span className="learner-progress__stat-note">{levelsSummary.intermediate} intermediate · {levelsSummary.advanced} advanced</span>
+            </article>
+            <article className="learner-progress__stat panel">
+              <span className="learner-progress__stat-label">Reviews due</span>
+              <strong>{dueCount}</strong>
+              <span className="learner-progress__stat-note">Scheduled from your quiz answers</span>
+            </article>
+          </div>
+
+          <section className="learner-progress__section panel" aria-labelledby="topic-progress-heading">
+            <div className="learner-progress__section-heading">
+              <div>
+                <h3 id="topic-progress-heading">Progress by topic</h3>
+                <p>Accuracy determines the level used for future questions and explanations.</p>
+              </div>
+              <span className="learner-progress__topic-count">{rows.length} topics</span>
+            </div>
           <div className="learner-progress__table-wrap">
             <table className="learner-progress__table">
               <thead>
@@ -50,7 +83,12 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
                     <tr key={topic}>
                       <th scope="row">{topic}</th>
                       <td>{stats.correct}/{stats.attempts}</td>
-                      <td>{percent}%</td>
+                      <td>
+                        <div className="learner-progress__accuracy">
+                          <span>{percent}%</span>
+                          <span className="learner-progress__bar" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+                        </div>
+                      </td>
                       <td><span className={`level-pill level-pill--${level}`}>{level}</span></td>
                     </tr>
                   );
@@ -58,8 +96,9 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
               </tbody>
             </table>
           </div>
+          </section>
           <div className="learner-progress__levels">
-            <p><strong>How levels are set:</strong> below 40% = beginner; 40–74% = intermediate; 75% or higher = advanced.</p>
+            <div><h3>How adaptive levels work</h3><p>Quiz choices are scored automatically. Recall recalculates your level for each topic from your accuracy.</p></div>
             <ul>
               {Object.entries(LEVEL_DETAILS).map(([level, detail]) => (
                 <li key={level}><strong>{level[0].toUpperCase() + level.slice(1)}:</strong> {detail}</li>
@@ -67,7 +106,7 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
             </ul>
           </div>
           <p className="learner-progress__next">
-            Every new generation and refinement receives these topic levels. Use <strong>Focus on my weak spots</strong> to target your three lowest-accuracy topics.
+            Every new generation and refinement receives these topic levels. Use <strong>Focus on my weak spots</strong> on the Study page to target your three lowest-accuracy topics.
             {dueCount > 0 && ` You also have ${dueCount} scheduled review item${dueCount === 1 ? "" : "s"} due.`}
           </p>
         </>
