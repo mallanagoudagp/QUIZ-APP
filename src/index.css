@@ -1248,11 +1248,28 @@ input[type="email"]:focus {
 }
 
 .quiz__feedback {
-  margin: 6px 0 0 42px;
-  color: var(--wrong);
+  margin: 8px 0 0 42px;
+  padding: 11px 14px;
+  border-left: 3px solid var(--wrong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--wrong-bg);
+  color: var(--ink);
   font-size: 0.9rem;
-  font-weight: 500;
+  line-height: 1.55;
   animation: fadeIn 0.3s ease;
+}
+
+.quiz__feedback strong,
+.quiz__explanation strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.quiz__feedback p,
+.quiz__explanation p {
+  margin: 0;
 }
 
 @keyframes fadeIn {
@@ -1273,7 +1290,7 @@ input[type="email"]:focus {
   border-left: 3px solid var(--primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 14px 18px;
-  color: var(--ink-soft);
+  color: var(--ink);
   font-size: 0.95rem;
   line-height: 1.6;
   margin: 0;

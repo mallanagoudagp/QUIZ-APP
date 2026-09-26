@@ -1,7 +1,7 @@
 const LEVEL_DETAILS = {
-  beginner: "Builds fundamentals with easier questions and plain-language explanations.",
+  beginner: "Builds fundamentals with easier questions and plain-language explanations. A topic needs at least 3 distinct questions before moving up.",
   intermediate: "Uses a mix of medium questions and explanations that assume the basics.",
-  advanced: "Uses harder questions and concise, more technical explanations."
+  advanced: "Uses harder questions and concise, more technical explanations. At least 5 distinct questions are needed to reach this level."
 };
 
 export default function LearnerProgress({ topics, levels, hasHistory, dueCount = 0 }) {
@@ -40,7 +40,7 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
         <div className="learner-progress__empty panel">
           <span className="learner-progress__empty-icon" aria-hidden="true">▥</span>
           <h3>Your progress will show up here</h3>
-          <p>Generate a study set, open its Quiz tab, and answer the multiple-choice questions. Recall scores every answer by topic. Your next generation will use those scores automatically.</p>
+          <p>Generate a study set, open its Quiz tab, and answer the multiple-choice questions. Recall tracks distinct questions by topic, so retrying the same question cannot inflate its confidence score. Your next generation uses those scores automatically.</p>
         </div>
       ) : (
         <>
@@ -48,7 +48,7 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
             <article className="learner-progress__stat panel">
               <span className="learner-progress__stat-label">Overall accuracy</span>
               <strong>{overall}<small>%</small></strong>
-              <span className="learner-progress__stat-note">{totals.correct} correct out of {totals.attempts} answers</span>
+              <span className="learner-progress__stat-note">{totals.correct} correct across {totals.attempts} distinct questions</span>
             </article>
             <article className="learner-progress__stat panel">
               <span className="learner-progress__stat-label">Topics practiced</span>
@@ -85,7 +85,7 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
                   <div className="learner-progress__table-wrap">
                     <table className="learner-progress__table">
                       <thead>
-                        <tr><th scope="col">Topic</th><th scope="col">Score</th><th scope="col">Accuracy</th><th scope="col">Current level</th></tr>
+                        <tr><th scope="col">Topic</th><th scope="col">Distinct question score</th><th scope="col">Accuracy</th><th scope="col">Current level</th></tr>
                       </thead>
                       <tbody>
                         {subjectRows.map(([key, stats]) => {
@@ -113,7 +113,7 @@ export default function LearnerProgress({ topics, levels, hasHistory, dueCount =
             })}
           </div>
           <div className="learner-progress__levels">
-            <div><h3>How adaptive levels work</h3><p>Quiz choices are scored automatically. Recall recalculates your level for each topic from your accuracy.</p></div>
+            <div><h3>How adaptive levels work</h3><p>Each distinct question counts once, using its latest answer. Repeating a question cannot add another correct answer. Recall also waits for at least 3 distinct questions before moving a topic above beginner and 5 before advanced.</p></div>
             <ul>
               {Object.entries(LEVEL_DETAILS).map(([level, detail]) => (
                 <li key={level}><strong>{level[0].toUpperCase() + level.slice(1)}:</strong> {detail}</li>

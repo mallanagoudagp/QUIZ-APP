@@ -55,7 +55,7 @@ test("learner progress explains how quiz answers build personalization", () => {
     topics: {}, levels: {}, hasHistory: false
   }));
   assert.ok(screen.getByText(/answer the multiple-choice questions/i));
-  assert.ok(screen.getByText(/Your next generation will use those scores automatically/i));
+  assert.ok(screen.getByText(/Your next generation uses those scores automatically/i));
 });
 
 test("learner progress shows topic score, accuracy and current level", () => {
@@ -69,7 +69,7 @@ test("learner progress shows topic score, accuracy and current level", () => {
   const table = within(screen.getByRole("table"));
   assert.ok(table.getByText("1/5"));
   assert.ok(table.getByText("20%"));
-  assert.ok(screen.getByText("beginner"));
+  assert.ok(table.getByText("beginner"));
   assert.ok(screen.getByText(/three lowest-accuracy topics/i));
 });
 

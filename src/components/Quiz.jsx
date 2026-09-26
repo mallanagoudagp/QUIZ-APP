@@ -104,7 +104,7 @@ export default function Quiz({ questions, onAnswer }) {
   return (
     <div className="quiz">
       <p className="deck__progress">
-        Question {index + 1} of {pool.length} · {current.topic} · Score {score}/{answeredCount}
+        Question {index + 1} of {pool.length} · {current.topic} · {current.difficulty || "medium"} difficulty · Score {score}/{answeredCount}
       </p>
       <p className="quiz__question">{current.question}</p>
       <ul className="quiz__options">
@@ -127,8 +127,11 @@ export default function Quiz({ questions, onAnswer }) {
                 <span className="quiz__option-key">{i + 1}</span>
                 {opt}
               </button>
-              {showState && isSelected && !isCorrect && current.optionFeedback?.[i] && (
-                <p className="quiz__feedback">{current.optionFeedback[i]}</p>
+              {showState && isSelected && !isCorrect && (
+                <div className="quiz__feedback" role="note">
+                  <strong>Why that choice is incorrect</strong>
+                  <p>{current.optionFeedback?.[i] || "That choice misses the key idea. Use the explanation below to follow the correct reasoning."}</p>
+                </div>
               )}
             </li>
           );
@@ -137,7 +140,12 @@ export default function Quiz({ questions, onAnswer }) {
 
       {selected !== null && (
         <div className="quiz__after">
-          {current.explanation && <p className="quiz__explanation">{current.explanation}</p>}
+          {current.explanation && (
+            <div className="quiz__explanation">
+              <strong>{selected === current.correctIndex ? "Why this answer is correct" : "The correct answer, step by step"}</strong>
+              <p>{current.explanation}</p>
+            </div>
+          )}
           <button type="button" className="button button--primary" onClick={next}>
             {index + 1 < pool.length ? "Next question →" : "See results"}
           </button>

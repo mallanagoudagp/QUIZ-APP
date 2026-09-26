@@ -67,9 +67,9 @@ async function callGroq({ apiKey, model, prompt }) {
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
-async function streamProvider({ provider, apiKey, model, prompt, onText, signal, simulate }) {
+async function streamProvider({ provider, apiKey, model, prompt, onText, signal, simulate, learnerContext }) {
   if (provider === "mock") {
-    const raw = await mockGenerate(simulate);
+    const raw = await mockGenerate(simulate, learnerContext);
     for (let i = 0; i < raw.length; i += 48) {
       if (signal?.aborted) throw new Error("aborted");
       onText(raw.slice(i, i + 48));
@@ -148,7 +148,8 @@ export async function handleGenerateStream(body, onText, signal) {
     prompt: fullPrompt,
     onText: (chunk) => { raw += chunk; onText(chunk); },
     signal,
-    simulate
+    simulate,
+    learnerContext
   });
   if (!simulate && raw.trim()) {
     responseCache.set(key, { raw, expiresAt: Date.now() + CACHE_TTL_MS });
@@ -194,7 +195,7 @@ export async function handleGenerate(body) {
   try {
     let raw;
     if (provider === "mock") {
-      raw = await mockGenerate(simulate);
+      raw = await mockGenerate(simulate, learnerContext);
     } else if (provider === "gemini") {
       raw = await callGemini({
         apiKey: process.env.LLM_API_KEY,

@@ -2,19 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, supabaseEnabled } from "../lib/supabaseClient";
 import { loadLearnerModel, saveLearnerModel } from "../lib/storage";
 import { dueReviewBlocks, nextReview, reviewKey } from "../lib/reviewSchedule";
-
-/**
- * Turns raw accuracy into a coarse level. This drives both question
- * difficulty and how much a wrong-answer explanation assumes the learner
- * already knows for that topic.
- */
-function levelForStats(stats) {
-  if (!stats || stats.attempts === 0) return "beginner";
-  const accuracy = stats.correct / stats.attempts;
-  if (accuracy < 0.4) return "beginner";
-  if (accuracy < 0.75) return "intermediate";
-  return "advanced";
-}
+import { levelForStats, questionsByTopic, scoreQuestion, statsFromQuestionHistory } from "../lib/learnerScoring";
 
 const topicKey = (subject, topic) => JSON.stringify([subject, topic]);
 
@@ -55,6 +43,7 @@ export function useLearnerProfile(user) {
       setReady(false);
       if (cloud) {
         setLoading(true);
+        let next = {};
         const { data, error } = await supabase
           .from("learner_topics")
           .select("subject, topic, attempts, correct")
@@ -64,7 +53,6 @@ export function useLearnerProfile(user) {
           console.error("Failed to load learner profile from Supabase:", error.message);
           setTopics({});
         } else {
-          const next = {};
           for (const row of data) {
             next[topicKey(row.subject || "Previously studied", row.topic)] = {
               subject: row.subject || "Previously studied",
@@ -73,7 +61,6 @@ export function useLearnerProfile(user) {
               correct: row.correct
             };
           }
-          setTopics(next);
         }
         const { data: reviews, error: reviewError } = await supabase.from("learner_reviews")
           .select("block_id, block, box, due_at").eq("user_id", user.id);
@@ -81,13 +68,18 @@ export function useLearnerProfile(user) {
         if (reviewError) console.error("Failed to load review schedule:", reviewError.message);
         const reviewMap = {};
         for (const row of reviews || []) reviewMap[row.block_id] = { block: row.block, box: row.box, dueAt: row.due_at };
+        const questionStats = statsFromQuestionHistory(reviewMap);
+        setTopics(Object.keys(questionStats).length ? { ...next, ...questionStats } : next);
         setMissed(reviewMap);
         setLoading(false);
         setReady(true);
       } else {
         const local = loadLearnerModel();
-        setTopics(normalizeTopicStats(local.topics));
-        setMissed(local.missed || {});
+        const localMissed = local.missed || {};
+        const oldTopicStats = normalizeTopicStats(local.topics);
+        const questionStats = statsFromQuestionHistory(localMissed);
+        setTopics(Object.keys(questionStats).length ? { ...oldTopicStats, ...questionStats } : oldTopicStats);
+        setMissed(localMissed);
         setLoading(false);
         setReady(true);
       }
@@ -110,12 +102,16 @@ export function useLearnerProfile(user) {
       const topic = block.topic || "General";
       const key = topicKey(subject, topic);
       const scoredBlock = { ...block, subject, topic };
+      const id = reviewKey(scoredBlock);
+      const previousReview = missed[id];
       setTopics((prev) => {
-        const t = prev[key] || { subject, topic, attempts: 0, correct: 0 };
+        const historyStats = statsFromQuestionHistory(missed);
+        const t = historyStats[key] || prev[key] || { subject, topic, attempts: 0, correct: 0 };
         const nextStat = {
           ...t,
-          attempts: t.attempts + 1,
-          correct: t.correct + (wasCorrect ? 1 : 0)
+          ...scoreQuestion(t, previousReview, wasCorrect),
+          subject,
+          topic
         };
 
         if (cloud) {
@@ -142,7 +138,6 @@ export function useLearnerProfile(user) {
 
       setMissed((prev) => {
         const next = { ...prev };
-        const id = reviewKey(scoredBlock);
         const review = nextReview(scoredBlock, next[id], wasCorrect);
         next[id] = review;
         if (cloud) {
@@ -155,7 +150,7 @@ export function useLearnerProfile(user) {
         return next;
       });
     },
-    [cloud, user]
+    [cloud, user, missed]
   );
 
   const reset = useCallback(async () => {
@@ -193,8 +188,8 @@ export function useLearnerProfile(user) {
     const promptLevels = Object.fromEntries(
       Object.entries(combined).map(([topic, stats]) => [topic, levelForStats(stats)])
     );
-    return { topics: combined, levels: promptLevels };
-  }, [topics]);
+    return { topics: combined, levels: promptLevels, seenQuestions: questionsByTopic(missed) };
+  }, [topics, missed]);
 
   const hasHistory = Object.keys(topics).length > 0;
   const dueReviews = dueReviewBlocks(missed);

@@ -41,7 +41,7 @@ export default function FlashcardDeck({ cards }) {
   return (
     <div className="deck">
       <p className="deck__progress">
-        Card {index + 1} of {cards.length} · {card.topic}
+        Card {index + 1} of {cards.length} · {card.topic} · {card.difficulty || "medium"} difficulty
       </p>
       <button
         type="button"

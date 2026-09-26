@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateResult } from "../src/lib/validateResult.js";
+import { preserveSummaryOnRefine } from "../src/lib/refineResult.js";
 
 const GOOD = JSON.stringify({
   title: "Sample",
@@ -98,4 +99,21 @@ test("returns wrong-shape when every block is invalid", () => {
   const r = validateResult(JSON.stringify(bad));
   assert.equal(r.ok, false);
   assert.equal(r.reason, "wrong-shape");
+});
+
+test("refinement keeps the old summary when the model omits it", () => {
+  const summary = { type: "summary", id: "s1", points: ["Key idea"] };
+  const previous = { title: "Set", blocks: [summary] };
+  const refined = { title: "Set", blocks: [{ type: "flashcard", id: "c1", question: "Q", answer: "A" }] };
+  assert.deepEqual(preserveSummaryOnRefine(previous, refined, "make the answers longer").blocks.at(-1), summary);
+});
+
+test("refinement can replace or explicitly remove the summary", () => {
+  const previous = { title: "Set", blocks: [{ type: "summary", id: "s1", points: ["Old"] }] };
+  const replacement = { type: "summary", id: "s2", points: ["Updated"] };
+  const refined = { title: "Set", blocks: [replacement] };
+  assert.deepEqual(preserveSummaryOnRefine(previous, refined, "update the summary"), refined);
+
+  const noSummary = { title: "Set", blocks: [] };
+  assert.deepEqual(preserveSummaryOnRefine(previous, noSummary, "remove the summary"), noSummary);
 });

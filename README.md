@@ -1,295 +1,232 @@
-# Recall — an adaptive study assistant
+﻿# Recall - AI Study Assistant
 
-> Paste your notes or a topic. Get flashcards, quiz questions and a summary as **interactive components** (not a chat). The app tracks what you get wrong and generates the next set around your weak spots.
+Recall turns study notes or a topic into an interactive study set: flashcards, multiple-choice questions, explanations, and a summary. It tracks quiz performance by topic and uses that history to adapt future study sets.
 
-Built for the Flam Frontend Internship assignment (React + LLM, structured output, robust handling of bad AI output).
+- **Assignment:** Flam Frontend Internship - AI-powered study assistant
+- **Production URL:** [https://quizapp-ruddy-two.vercel.app/](https://quizapp-ruddy-two.vercel.app/)
+- **Hosting:** Vercel
 
-**Live demo:** [Recall on Vercel](https://quizapp-ruddy-two.vercel.app/) · **Deployment:** Vercel · **Screen recording:** Not recorded
+> Before sharing the production URL, confirm that Vercel Deployment Protection allows reviewers to open it without team approval.
 
----
+## Features
 
-## Status
+- Generate a study set from pasted notes or a topic.
+- Review flip-card decks and answer multiple-choice quizzes.
+- See explanations for correct answers and option-specific feedback for wrong choices.
+- Re-test questions answered incorrectly.
+- Refine a set with natural-language instructions and undo the last refinement.
+- Track progress by subject and topic in the learning dashboard.
+- Generate an additional study set focused on the learner's lowest-scoring topics.
+- Adapt future question difficulty and explanation depth to quiz performance.
+- Avoid giving repeated answers extra weight in the confidence score.
+- Schedule missed questions for review and space successful reviews over time.
+- Save the current study set, export or import it as JSON, and use dark mode.
+- Use the responsive layout and keyboard controls for flashcards and quizzes.
+- Use guest mode with browser storage, or optionally sign in with email and password to sync progress across devices.
 
-The app is deployed on Vercel, and email/password sign-in is enabled with Supabase environment variables. The app defaults to a **mock LLM provider** unless `LLM_PROVIDER` is configured for a live provider. Remaining release work is to verify the account and cloud-sync flow and record a short demo.
+## How personalization works
 
-**Core**
-- [x] Free-form text input → backend proxy → LLM → validated JSON → UI
-- [x] Flashcard deck (flip, next/prev)
-- [x] Quiz (MCQ, score, per-option feedback)
-- [x] Re-test wrong answers
-- [x] Loading / error / empty states, retry
-- [x] All failure modes handled (see table below) — unit-tested in `tests/`
-- [x] Mobile layout (single column, responsive type/spacing)
+Recall does not ask learners to enter a confidence rating. It estimates confidence from their performance on distinct quiz questions for each topic.
 
-**Stretch (treated as must-do)**
-- [x] Mixed block types (flashcard, mcq, summary)
-- [x] Refinement loop (follow-up prompt edits the current set) with undo
-- [x] Save / reload sessions (localStorage; Supabase when signed in) + JSON export/import
-- [x] Polish: dark mode, flip animation, keyboard navigation
-- [x] Streaming responses from Gemini, Groq and the mock provider; output is validated before rendering
+- An exact question contributes once to a topic's score. Re-answering it updates that question's latest outcome; it does not add another attempt or correct answer.
+- A topic stays at **Beginner** until there are at least 3 distinct answered questions. It can reach **Advanced** only after at least 5.
+- Once those minimums are met, accuracy below 40% maps to Beginner, 40-74% to Intermediate, and 75% or higher to Advanced.
+- The learner's topic levels are sent with generation and refinement requests. Low-confidence topics receive easy, fundamentals-first questions and 4-6 sentence flashcard answers and quiz explanations. Intermediate topics receive mostly medium questions; advanced topics receive medium or hard application questions. Wrong-choice feedback is prompted at 3-5 plain-language sentences at every level.
+- Up to 12 previously answered question stems per topic are supplied as anti-repeat guidance for newly generated questions. The model is asked to avoid repeating or lightly rewording them. AI output can vary, but repeating an exact question does not increase its confidence score.
+- The dashboard reports distinct-question accuracy and shows each topic's current level.
 
-**Personalization**
-- [x] Learner model (per-topic accuracy, missed questions, scheduled Leitner review)
-- [x] "Focus on my weak spots" generation
-- [x] Per-topic level (beginner/intermediate/advanced) drives both question difficulty and explanation depth, on every generation — not just the weak-spots button
-- [x] Personalized wrong-answer explanations (`optionFeedback`), depth-matched to level
-- [x] **Optional accounts (Supabase):** sync learner stats, scheduled reviews and current study set across devices; guest mode (localStorage) needs no setup
+Missed questions are scheduled for review after 10 minutes. Correct reviews move through 1, 3, 7, 14, and 30 day intervals. Learners can also reset their progress from the dashboard.
 
-> Accounts are optional at runtime rather than required: without `VITE_SUPABASE_*` env vars set, there's no sign-in UI and the app runs in guest mode (localStorage). Set them and run `supabase/schema.sql` to turn accounts on.
+## Refine behavior
 
----
+**Refine the current set** sends the current study set and the requested change to the model. The model is instructed to return the complete updated set, preserve unchanged blocks and questions, and modify only what the request calls for. For example, asking for longer answers should leave the questions alone; asking for harder questions should change the quiz difficulty or question content. The previous set is available through **Undo last refine**. If the model omits the existing summary, Recall restores it unless the instruction explicitly asks to remove, delete, drop, or omit the summary.
 
-## How it works
+## Generated study-set format
 
-```
-Browser (React)                     Backend (Express / serverless)         LLM provider
-───────────────                     ───────────────────────────           ────────────
-PromptInput ──► lib/api.js ──POST /api/generate──► server/generate.js ──► Gemini / Groq
-                                       │  holds API key, rate-limits,        (or a mock
-                                       │  builds the strict prompt            provider)
-                                       ▼
-ResultView ◄── validateResult.js ◄── raw text
-   │              (zod, per-block)
-   ├─ FlashcardDeck
-   ├─ Quiz
-   └─ SummaryBlock
-```
-
-- The **API key never reaches the browser**. `src/lib/api.js` is the only place the frontend talks to the network, and it only ever calls our own `/api/generate`.
-- The model is asked for **JSON only**. Nothing it returns is rendered until it has been parsed and validated in `src/lib/validateResult.js`.
-- The UI is driven entirely by React state built from validated data — never by printing the model's raw text.
-
-## Data shape
+The model returns JSON with a title and a list of typed blocks. Recall validates each block before displaying it.
 
 ```json
 {
-  "title": "Photosynthesis basics",
+  "title": "Photosynthesis",
   "blocks": [
     {
       "type": "flashcard",
       "id": "c1",
       "topic": "Light reactions",
       "difficulty": "easy",
-      "question": "Where do the light reactions occur?",
-      "answer": "In the thylakoid membranes of the chloroplast."
+      "question": "Where do the light reactions happen?",
+      "answer": "They happen in the thylakoid membranes inside chloroplasts."
     },
     {
       "type": "mcq",
       "id": "q1",
       "topic": "Calvin cycle",
       "difficulty": "medium",
-      "question": "Which molecule is fixed in the Calvin cycle?",
-      "options": ["O2", "CO2", "N2", "H2O"],
+      "question": "Which molecule is fixed during the Calvin cycle?",
+      "options": ["Oxygen", "Carbon dioxide", "Nitrogen", "Water"],
       "correctIndex": 1,
-      "explanation": "CO2 is fixed by RuBisCO.",
-      "optionFeedback": ["explains why O2 is wrong", "", "explains why N2 is wrong", "explains why H2O is wrong"]
+      "explanation": "Carbon dioxide supplies the carbon used to build sugar.",
+      "optionFeedback": [
+        "Oxygen is released in the light reactions, not fixed here.",
+        "",
+        "Nitrogen fixation is a separate process.",
+        "Water is split during the light reactions."
+      ]
     },
-    { "type": "summary", "id": "s1", "points": ["...", "..."] }
+    { "type": "summary", "id": "s1", "points": ["Key idea one", "Key idea two"] }
   ]
 }
 ```
 
-`optionFeedback[i]` explains why option *i* is a common misconception (empty string for the correct one). The exact contract lives in `server/prompt.js` (what we ask the model for) and `src/lib/validateResult.js` (what we actually accept) — keep those two in sync if you change the shape.
+`optionFeedback` has one entry per answer choice. Its entry for the correct answer is an empty string; each wrong-choice entry explains that distractor. The full prompt and validation rules are in [`server/prompt.js`](server/prompt.js) and [`src/lib/validateResult.js`](src/lib/validateResult.js).
 
-## Handling bad AI output
+## Validation and error handling
 
-Validation lives in `src/lib/validateResult.js`, separate from the UI so it's easy to test and reason about on its own. Covered by `tests/validateResult.test.mjs`.
+- The response is parsed as JSON and validated by block type before it reaches the study UI. A Markdown JSON fence is stripped if the model adds one.
+- Invalid blocks are skipped individually so one malformed card does not discard valid cards. Recall shows a notice with the number skipped. If no valid block remains, it shows an error and retry action.
+- Empty or malformed responses, provider/network errors, rate limits, oversized input, and timeouts produce user-facing error states. Provider details and keys are not sent to the browser.
+- A slow-request message appears after 6 seconds; requests are aborted after 30 seconds. Starting another request aborts the previous one so an older response cannot replace newer content.
+- The response simulator at `?debug=1` exercises malformed, wrong-shape, empty, slow, and failed responses.
 
-| Failure | What happens |
-|---|---|
-| Malformed JSON | Strip a ```` ```json ```` fence if present, try to parse; if it still fails → error state with **Retry** |
-| Valid JSON, wrong shape | zod validation. Invalid blocks are **dropped individually**; valid ones are shown with a note ("N items were skipped"). If nothing valid remains → error state |
-| Semantically bad block | e.g. MCQ with `correctIndex` out of range, duplicate options, too few options → that block is dropped |
-| Empty response | Treated as a failure, never as an empty-but-valid result |
-| Slow response | Loading state, then a "taking longer than usual" message after ~6s, hard timeout via `AbortController` at 30s |
-| Failed request (network, 429, 5xx) | Friendly error + Retry. Raw provider errors are never shown to the user |
-| Stale response | A request-id guard **and** aborting the previous in-flight request, so a slow old response can never overwrite a newer one |
+## Run locally
 
-**Try it yourself:** open the app with `?debug=1` in the URL (e.g. `http://localhost:5173/?debug=1`) to reveal a "Simulate response" panel that forces each of these cases on demand — this is what you'd use for your screen recording.
+### Requirements
 
-## Personalization
+- Node.js 20.19+ or 22.12+
+- npm
 
-There are no profile forms — the only inputs are the text box and the learner's own behavior inside the app.
-
-Open **Your progress** from the app navigation to see the learning dashboard without interrupting the Study page. It shows overall accuracy, topics practiced, level counts, reviews due, and a per-topic table with correct/attempted, accuracy, and current level. The quiz displays its score after each answer. Levels are automatic: below 40% is beginner, 40–74% is intermediate, and 75% or higher is advanced. Beginner topics receive fundamentals-first instructions and easier questions; advanced topics receive harder questions and more concise, technical explanations. There is no manual score or difficulty entry; scores come from answered multiple-choice questions.
-
-**Learner model** (`src/hooks/useLearnerProfile.js`, persisted to `localStorage` for guests and Supabase for signed-in users):
-
-```json
-{
-  "topics": { "Calvin cycle": { "attempts": 6, "correct": 2 } },
-  "missed": { "q1": { "box": 0, "dueAt": "2026-01-02T00:00:00.000Z" } }
-}
-```
-
-- **Level per topic:** `useLearnerProfile` computes beginner/intermediate/advanced per topic from accuracy (`<40%` / `<75%` / else). This is sent with **every** generate and refine call, not just the weak-spots button — so if a new prompt touches a topic the learner has quiz history in, the model calibrates automatically.
-- **Difficulty + explanation depth:** the prompt (`server/prompt.js`) tells the model to write easier questions and plain-language, fundamentals-first explanations for beginner topics, and more concise, technical explanations for advanced ones (see the "level per topic" instruction it builds).
-- **Weak-spot generation:** "Focus on my weak spots" additionally asks the model to target the lowest-accuracy topics specifically.
-- **Spaced repetition:** missed quiz items return after 10 minutes; correct answers advance through 1, 3, 7, 14 and 30 day intervals. Due items appear in the scheduled review queue.
-- **Prompt hygiene:** the learner summary and user text are passed as clearly delimited data, never as instructions to the model.
-
-### Optional accounts (Supabase)
-
-- Progress is grouped by study-set title (subject), then topic. For an existing Supabase project, run `supabase/migrations/20260925_learner_topic_subjects.sql` in the SQL editor to enable subject-specific topic scores; existing rows are retained under **Previously studied**.
-
-- **Guest mode (default):** no env vars set → no sign-in UI, learner profile lives in `localStorage`, exactly like the original version.
-- **Signed in:** set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env` and run `supabase/schema.sql` once in your Supabase project's SQL editor. A "Sign in" button appears with email/password sign-in, account creation, and password reset. If email confirmation is enabled in Supabase, new users confirm their address before signing in. Existing magic-link users can use **Forgot password?** to set a password for their account. Once signed in, the per-topic accuracy that drives levels is read from and written to the `learner_topics` table instead of localStorage, so it follows the account across devices/browsers.
-- In Supabase Auth **URL Configuration**, use a publicly accessible production URL as the Site URL and allow the local development URL (`http://localhost:5173/**`). Sign-up and password recovery return to the origin where the flow started; protected Vercel preview deployments require Vercel team access and should not be used as the public Site URL.
-- Signed-in accounts sync per-topic accuracy, scheduled review items and the current study set. Guest accounts keep these locally.
-- **Security:** the Supabase anon key is safe to expose in the browser by design. What actually protects one user's data from another's is Row Level Security, defined in `supabase/schema.sql` — every policy checks `auth.uid() = user_id`.
-
-## Keyboard shortcuts
-
-| Key | Action |
-|---|---|
-| `Space` / `Enter` | Flip the current flashcard |
-| `←` / `→` | Previous / next flashcard |
-| `1`–`4` | Choose a quiz option |
-
-## Getting started
-
-**Requirements:** Node 20.19+ or 22.12+.
+### Install and start
 
 ```bash
 npm install
+```
+
+Copy `.env.example` to `.env`, then start the client and API server together:
+
+```bash
+# macOS / Linux
 cp .env.example .env
-npm start        # runs the API server and the Vite dev server together
+npm start
 ```
 
-Open http://localhost:5173 — it works immediately with `LLM_PROVIDER=mock` (the
-default), no key required, and with no sign-in UI (guest mode). That's a
-built-in fake responder so you can build and demo the whole UI, including
-every failure state, for free.
-
-To use a real model, edit `.env`:
-
+```powershell
+# Windows PowerShell
+Copy-Item .env.example .env
+npm start
 ```
+
+Open [http://localhost:5173](http://localhost:5173). The API server runs at `http://localhost:8787`; its local health endpoint is `/api/health`.
+
+By default the app uses the built-in mock provider, so it can run without an LLM key. The mock provider returns fixed sample study content; use a real provider to generate material from arbitrary notes.
+
+### Configure an LLM provider
+
+Add the provider settings to `.env`:
+
+```dotenv
 LLM_PROVIDER=gemini
-LLM_API_KEY=your-key-here
+LLM_API_KEY=your-gemini-api-key
 LLM_MODEL=gemini-2.0-flash
 PORT=8787
 ```
 
-Gemini (`aistudio.google.com/apikey`) and Groq both have free tiers — set
-`LLM_PROVIDER=groq` and `LLM_MODEL=llama-3.3-70b-versatile` to use Groq instead.
+Supported providers are `gemini`, `groq`, and `mock`. For Groq, for example:
 
-To also enable accounts (optional, see "Optional accounts" above), add:
-
-```
-VITE_SUPABASE_URL=https://xxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+```dotenv
+LLM_PROVIDER=groq
+LLM_API_KEY=your-groq-api-key
+LLM_MODEL=llama-3.3-70b-versatile
 ```
 
-after running `supabase/schema.sql` in your project's SQL editor.
+Keep `LLM_API_KEY` on the server. Do not rename it with a `VITE_` prefix or commit a real key.
 
-> `npm start` uses `concurrently` to run the Vite dev server and the local
-> Express API together. In production, the same request-handling logic in
-> `server/generate.js` runs as a Vercel serverless function via `api/generate.js`
-> — the GitHub `main` branch is connected to Vercel for deployments. Set the
-> required environment variables in the Vercel project settings, and
-> Vite's dev-only proxy in `vite.config.js` is simply unused in prod (Vercel
-> routes `/api/*` to the function automatically).
+### Debug response states
 
-## Usage
+Open `http://localhost:5173/?debug=1` to show the development-only response simulator. It can return malformed JSON, the wrong shape, an empty response, a slow response, or a provider failure to exercise the UI's loading, validation, and retry states.
 
-1. Paste notes or type a topic (e.g. "Photosynthesis" or your own lecture notes).
-2. Click **Generate study set**. Flip through the flashcards, then take the quiz.
-3. Missed questions collect into **Re-test wrong answers** at the end of the quiz.
-4. Use **Refine** to edit the current set in place ("make these harder", "add 3 more on the Calvin cycle") instead of starting over. **Undo last refine** restores the previous version.
-5. Once you have quiz history, **Focus on my weak spots** generates a new set targeted at your lowest-accuracy topics.
-6. Sessions save automatically to this browser; use **Export/Import session** for a JSON backup or to move a session between browsers.
+## Optional accounts and cloud sync
+
+Without Supabase settings, Recall runs in guest mode. The current study set and learner history are stored in that browser's `localStorage`.
+
+To enable email/password accounts and cross-device sync:
+
+1. Create a Supabase project.
+2. Run [`supabase/schema.sql`](supabase/schema.sql) in the project's SQL editor.
+3. Add the following frontend build variables to `.env`:
+
+   ```dotenv
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+4. Enable email/password sign-in in Supabase Auth and configure the site's redirect URLs for localhost and the production origin.
+
+The app supports account creation, sign-in, password reset, and sign-out. If email confirmation is enabled in Supabase, new accounts must confirm their email before signing in. Signed-in users sync topic history, scheduled reviews, and the current study set. Supabase Row Level Security policies restrict user data to its owner. The anon key is intended for browser use; never expose the LLM provider key.
+
+For an existing database created before subject-wise progress was added, run [`supabase/migrations/20260925_learner_topic_subjects.sql`](supabase/migrations/20260925_learner_topic_subjects.sql) after the base schema.
+
+## Deploy to Vercel
+
+The repository includes a serverless API entry point at `api/generate.js`; Vercel routes `/api/generate` to it. Configure these project environment variables in Vercel:
+
+- `LLM_PROVIDER`
+- `LLM_API_KEY`
+- `LLM_MODEL` (optional; the server has provider defaults)
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` if using Supabase
+
+Redeploy after changing environment variables. Set Supabase Auth's Site URL and allowed redirect URLs to the public production origin. Make the reviewed deployment accessible to reviewers; protected preview deployments can require Vercel team approval.
+
+## Data and API flow
+
+```text
+Browser (React)
+  -> POST /api/generate
+  -> Express server locally or Vercel function in production
+  -> Gemini, Groq, or mock provider
+  -> JSON parsing and per-block validation
+  -> Flashcards, quiz, and summary UI
+```
+
+The provider key stays on the server. The API limits input to 20,000 characters, allows up to 20 requests per IP each minute, and caches matching requests in memory for five minutes. API failures do not expose provider error details to the browser.
+
+The validation contract is defined by [`server/prompt.js`](server/prompt.js) and [`src/lib/validateResult.js`](src/lib/validateResult.js). Invalid blocks are discarded individually; valid blocks can still be displayed. A response with no valid blocks is treated as an error.
+
+## Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` or `Enter` | Flip the current flashcard |
+| `Left` / `Right` arrows | Move between flashcards |
+| `1`-`4` | Choose a quiz option |
+
+## Tests and production build
+
+```bash
+npm test
+npm run build
+```
+
+The tests cover UI interactions, learner scoring and anti-repeat history, spaced review scheduling, provider handling, response validation, and refinement summary preservation.
 
 ## Project structure
 
+```text
+api/                    Vercel serverless API entry point
+server/                 Prompt construction, provider calls, mock provider, local API server
+shared/                 Shared input limits
+src/components/         Study UI, authentication, quiz, dashboard, review queue
+src/hooks/               Generation, auth, cloud session, and learner profile state
+src/lib/                 API client, validation, storage, scoring, and review logic
+supabase/                Database schema and migrations
+tests/                   Component and logic tests
+.env.example             Local configuration template
+README.md
 ```
-recall/
-├── src/
-│   ├── components/
-│   │   ├── PromptInput.jsx       # free-form input, refine box, weak-spots, debug panel
-│   │   ├── ResultView.jsx        # tabs; routes each block type to its component
-│   │   ├── FlashcardDeck.jsx
-│   │   ├── Quiz.jsx
-│   │   ├── SummaryBlock.jsx
-│   │   ├── ErrorState.jsx        # shared error + retry UI
-│   │   ├── LoadingState.jsx
-│   │   ├── AuthPanel.jsx         # email/password sign-in and account creation
-│   │   └── ReviewDue.jsx         # scheduled review quiz
-│   ├── hooks/
-│   │   ├── useGenerate.js        # request lifecycle: loading/slow/error, abort, stale-id guard
-│   │   ├── useSupabaseAuth.js    # email/password session state; no-ops without Supabase configured
-│   │   ├── useCloudSession.js    # current-session sync for signed-in users
-│   │   └── useLearnerProfile.js  # per-topic accuracy + level; cloud (Supabase) or local fallback
-│   ├── lib/
-│   │   ├── api.js                # the only place the frontend calls the LLM backend
-│   │   ├── validateResult.js     # parse + zod validation, per-block filtering
-│   │   ├── storage.js            # localStorage save/load/export/import
-│   │   ├── reviewSchedule.js     # Leitner interval progression and due-item selection
-│   │   ├── interaction.js        # quiz answer and flashcard navigation logic
-│   │   └── supabaseClient.js     # optional Supabase client; null when not configured
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── server/
-│   ├── prompt.js                 # builds the strict prompt: shape, level calibration, weak-spots
-│   ├── generate.js                # framework-agnostic handler: calls the provider, rate-limits
-│   ├── mockProvider.js           # fake responder for LLM_PROVIDER=mock, incl. failure simulation
-│   └── dev-server.js             # local Express wrapper around generate.js
-├── api/
-│   └── generate.js               # Vercel serverless entry, reuses server/generate.js
-├── supabase/
-│   └── schema.sql                # optional: learner_topics, learner_reviews, study_sessions + RLS
-├── tests/
-│   ├── validateResult.test.mjs
-│   ├── components.test.mjs
-│   ├── interaction.test.mjs
-│   ├── reviewSchedule.test.mjs
-│   └── server.test.mjs           # run with `npm test`
-├── .env.example
-└── README.md
-```
-
-## Design decisions
-
-- **Per-block validation** instead of all-or-nothing: one malformed card shouldn't throw away an otherwise-good set.
-- **Refinement sends the full previous result back to the model and asks for the full updated result** (not a diff), because diffs generated by an LLM are far less reliable than a complete object that gets re-validated the same way as any other response.
-- **Validation is fully separate from rendering** (`validateResult.js` has no React/DOM dependency) so it's unit-testable on its own — see `tests/`.
-- **Server-side limits:** max input length, a small per-IP rate limiter, and a fixed system prompt so user text can't override the required output format.
-- **Mock provider by default:** lets the whole UI, including every failure path, be built and demoed without spending API credits or needing a key.
-
-## AI usage note
-
-OpenAI Codex assisted with implementing and extending this project, including streaming, scheduled review, Supabase sync, caching and automated tests. Review the generated code and verify the live provider and account flows before submission.
 
 ## Known limitations
 
-- Free-tier LLM rate limits apply when using Gemini/Groq — the mock provider has none.
-- The model occasionally produces shallower questions for very short input; longer notes give better results.
-- Guest sessions are per-browser (localStorage); signed-in accounts sync the current session.
-
-- The in-memory response cache and rate limiter reset when the server process restarts.
-
-_Add anything else you find while testing._
-
-## Time spent
-
-| Area | Time |
-|---|---|
-| Schema, prompt design | |
-| Backend proxy + validation | |
-| Flashcards, quiz, re-test | |
-| Failure states + mobile | |
-| Refinement, save/reload, polish | |
-| Personalization | |
-| README, deploy, recording | |
-| **Total** | |
-
-## Remaining release steps
-
-- Verify Supabase email/password sign-in and account creation end to end. Confirm the Email provider is enabled in Supabase Auth and run `supabase/schema.sql` if it has not already been applied.
-- Confirm the production LLM provider works. The mock provider works without an API key; Gemini or Groq needs the matching `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL` values in Vercel.
-- Record a short demo that exercises generation, scheduled review, refinement and recovery from malformed output.
-
-
-
-
-
+- LLM output is probabilistic. Anti-repeat instructions guide the provider but cannot guarantee semantic uniqueness; exact repeated questions are prevented from adding duplicate confidence credit.
+- The mock provider uses fixed sample content and is for UI development, not arbitrary-topic generation.
+- Guest data belongs to one browser. Sign in to sync it through Supabase.
+- The API response cache and rate limiter are in-memory and reset when the server process restarts.
+- LLM availability and rate limits depend on the provider account and its current plan.

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { generate } from "../lib/api";
 import { validateResult } from "../lib/validateResult";
+import { preserveSummaryOnRefine } from "../lib/refineResult";
 
 const SLOW_AFTER_MS = 6000;
 
@@ -55,7 +56,10 @@ export function useGenerate() {
         return;
       }
 
-      setResult(validation.data);
+      const result = args.refine
+        ? preserveSummaryOnRefine(args.refine.previousResult, validation.data, args.refine.instruction)
+        : validation.data;
+      setResult(result);
       setDroppedCount(validation.droppedCount);
       setStatus("success");
     } catch (err) {
