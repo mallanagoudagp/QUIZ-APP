@@ -1,4 +1,4 @@
-﻿# Recall - AI Study Assistant
+# Recall - AI Study Assistant
 
 Recall turns study notes or a topic into an interactive study set: flashcards, multiple-choice questions, explanations, and a summary. It tracks quiz performance by topic and uses that history to adapt future study sets.
 
@@ -23,6 +23,99 @@ Recall turns study notes or a topic into an interactive study set: flashcards, m
 - Save the current study set, export or import it as JSON, and use dark mode.
 - Use the responsive layout and keyboard controls for flashcards and quizzes.
 - Use guest mode with browser storage, or optionally sign in with email and password to sync progress across devices.
+
+## System architecture
+
+```mermaid
+flowchart TB
+  subgraph Browser["1. Browser - React application"]
+    Input["PromptInput<br/>notes, topic, or refinement"]
+    App["App + useGenerate<br/>adds learner context"]
+    ClientAPI["src/lib/api.js<br/>POST /api/generate<br/>reads SSE stream"]
+    Validate["validateResult.js<br/>parse JSON and validate blocks"]
+    RefineGuard["Refinement safeguard<br/>restore omitted summary"]
+    Views["ResultView<br/>Flashcards | Quiz | Summary"]
+    Profile["useLearnerProfile<br/>distinct-question score, levels,<br/>answered question stems"]
+    Local[("localStorage<br/>guest progress + current set")]
+    Supabase[("Supabase<br/>signed-in progress + current set")]
+  end
+
+  subgraph Routes["2. API entry point - selected by runtime"]
+    Express["server/dev-server.js<br/>local Express server :8787"]
+    Vercel["api/generate.js<br/>Vercel serverless function"]
+  end
+
+  subgraph Server["3. Shared server logic"]
+    RateLimit["IP rate limit"]
+    Core["server/generate.js<br/>input limit, response cache,<br/>provider routing"]
+    Prompt["server/prompt.js<br/>output contract + notes/refinement<br/>+ personalization context"]
+    Provider["Gemini | Groq | mock<br/>API key stays server-side"]
+  end
+
+  Input --> App --> ClientAPI
+  Profile --> App
+  ClientAPI -->|Local development| Express
+  ClientAPI -->|Production deployment| Vercel
+  Express --> RateLimit
+  Vercel --> RateLimit
+  RateLimit --> Core --> Prompt --> Provider
+  Provider --> Core
+  Core -->|JSON chunks over SSE| ClientAPI
+  ClientAPI --> Validate --> RefineGuard --> Views
+  Views -->|Quiz answer| Profile
+  Profile -->|Guest mode| Local
+  Profile -->|Signed in| Supabase
+  Local -->|Load on startup| Profile
+  Supabase -->|Load on startup| Profile
+  Views -->|Save current set| Local
+  Views -->|Signed-in sync| Supabase
+```
+
+### Request and response steps
+
+1. **Collect the study request.** The learner enters notes or a topic. A refinement also includes the current complete study set and the requested edit.
+2. **Attach personalization.** The app adds the learner's per-topic accuracy levels and up to 12 previously answered question stems per topic when progress is available.
+3. **Send the request to Recall's API.** `src/lib/api.js` posts to `/api/generate` and reads a Server-Sent Events (SSE) response. The browser never calls Gemini or Groq directly.
+4. **Choose the runtime route.** Local development uses `server/dev-server.js`; Vercel uses `api/generate.js`. Both use the same server logic in `server/generate.js`.
+5. **Prepare the model request.** The server applies the input limit, rate limit, and response cache, then `server/prompt.js` builds the JSON contract and combines the notes or refinement with the learner context.
+6. **Call the provider.** The server sends the prompt to Gemini, Groq, or the fixed mock provider using server-side environment variables. Provider output streams back through the API route.
+7. **Validate before display.** The browser parses the complete response and validates blocks individually. Invalid blocks are skipped; if none remain valid, Recall shows an error and retry action. For refinements, a safeguard restores the previous summary if it was omitted and the learner did not ask to remove it.
+8. **Render and save the study set.** `ResultView` displays the flashcards, quiz, and summary. The current set is saved to localStorage and, when signed in, synced to Supabase.
+9. **Update learning progress.** Quiz answers update the latest result for that distinct topic/question, maintain the review schedule, and recalculate levels. Guest progress is stored locally; signed-in progress is stored in Supabase. Future requests use the updated context.
+
+The API limits input to 20,000 characters, allows up to 20 requests per IP each minute, and caches matching requests in memory for five minutes. Provider keys stay on the server, and provider error details are not exposed to the browser. The prompt contract is defined in [`server/prompt.js`](server/prompt.js); response validation is implemented in [`src/lib/validateResult.js`](src/lib/validateResult.js).
+
+## Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` or `Enter` | Flip the current flashcard |
+| `Left` / `Right` arrows | Move between flashcards |
+| `1`-`4` | Choose a quiz option |
+
+## Tests and production build
+
+```bash
+npm test
+npm run build
+```
+
+The tests cover UI interactions, learner scoring and anti-repeat history, spaced review scheduling, provider handling, response validation, and refinement summary preservation.
+
+## Project structure
+
+```text
+api/                    Vercel serverless API entry point
+server/                 Prompt construction, provider calls, mock provider, local API server
+shared/                 Shared input limits
+src/components/         Study UI, authentication, quiz, dashboard, review queue
+src/hooks/               Generation, auth, cloud session, and learner profile state
+src/lib/                 API client, validation, storage, scoring, and review logic
+supabase/                Database schema and migrations
+tests/                   Component and logic tests
+.env.example             Local configuration template
+README.md
+```
 
 ## How personalization works
 
@@ -175,53 +268,6 @@ The repository includes a serverless API entry point at `api/generate.js`; Verce
 - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` if using Supabase
 
 Redeploy after changing environment variables. Set Supabase Auth's Site URL and allowed redirect URLs to the public production origin. Make the reviewed deployment accessible to reviewers; protected preview deployments can require Vercel team approval.
-
-## Data and API flow
-
-```text
-Browser (React)
-  -> POST /api/generate
-  -> Express server locally or Vercel function in production
-  -> Gemini, Groq, or mock provider
-  -> JSON parsing and per-block validation
-  -> Flashcards, quiz, and summary UI
-```
-
-The provider key stays on the server. The API limits input to 20,000 characters, allows up to 20 requests per IP each minute, and caches matching requests in memory for five minutes. API failures do not expose provider error details to the browser.
-
-The validation contract is defined by [`server/prompt.js`](server/prompt.js) and [`src/lib/validateResult.js`](src/lib/validateResult.js). Invalid blocks are discarded individually; valid blocks can still be displayed. A response with no valid blocks is treated as an error.
-
-## Keyboard controls
-
-| Key | Action |
-| --- | --- |
-| `Space` or `Enter` | Flip the current flashcard |
-| `Left` / `Right` arrows | Move between flashcards |
-| `1`-`4` | Choose a quiz option |
-
-## Tests and production build
-
-```bash
-npm test
-npm run build
-```
-
-The tests cover UI interactions, learner scoring and anti-repeat history, spaced review scheduling, provider handling, response validation, and refinement summary preservation.
-
-## Project structure
-
-```text
-api/                    Vercel serverless API entry point
-server/                 Prompt construction, provider calls, mock provider, local API server
-shared/                 Shared input limits
-src/components/         Study UI, authentication, quiz, dashboard, review queue
-src/hooks/               Generation, auth, cloud session, and learner profile state
-src/lib/                 API client, validation, storage, scoring, and review logic
-supabase/                Database schema and migrations
-tests/                   Component and logic tests
-.env.example             Local configuration template
-README.md
-```
 
 ## Known limitations
 
