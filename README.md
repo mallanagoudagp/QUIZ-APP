@@ -5,6 +5,7 @@ Recall turns study notes or a topic into an interactive study set: flashcards, m
 - **Assignment:** Flam Frontend Internship - AI-powered study assistant
 - **Production URL:** [https://quizapp-ruddy-two.vercel.app/](https://quizapp-ruddy-two.vercel.app/)
 - **Hosting:** Vercel
+- **Demo Link:** https://1drv.ms/v/c/6faea21805be5207/IQBaZCBgm-Y4RJRQy9Qz-c9KAULMsL-fzukCKzTyzQbF520?e=N2nTKU
 
 > Before sharing the production URL, confirm that Vercel Deployment Protection allows reviewers to open it without team approval.
 
