@@ -8,6 +8,43 @@ Recall turns study notes or a topic into an interactive study set: flashcards, m
 
 > Before sharing the production URL, confirm that Vercel Deployment Protection allows reviewers to open it without team approval.
 
+## Generated study-set format
+
+The model returns JSON with a title and a list of typed blocks. Recall validates each block before displaying it.
+
+```json
+{
+  "title": "Photosynthesis",
+  "blocks": [
+    {
+      "type": "flashcard",
+      "id": "c1",
+      "topic": "Light reactions",
+      "difficulty": "easy",
+      "question": "Where do the light reactions happen?",
+      "answer": "They happen in the thylakoid membranes inside chloroplasts."
+    },
+    {
+      "type": "mcq",
+      "id": "q1",
+      "topic": "Calvin cycle",
+      "difficulty": "medium",
+      "question": "Which molecule is fixed during the Calvin cycle?",
+      "options": ["Oxygen", "Carbon dioxide", "Nitrogen", "Water"],
+      "correctIndex": 1,
+      "explanation": "Carbon dioxide supplies the carbon used to build sugar.",
+      "optionFeedback": [
+        "Oxygen is released in the light reactions, not fixed here.",
+        "",
+        "Nitrogen fixation is a separate process.",
+        "Water is split during the light reactions."
+      ]
+    },
+    { "type": "summary", "id": "s1", "points": ["Key idea one", "Key idea two"] }
+  ]
+}
+```
+
 ## Features
 
 - Generate a study set from pasted notes or a topic.
@@ -71,6 +108,38 @@ flowchart TB
   Views -->|Signed-in sync| Supabase
 ```
 
+
+
+## How personalization works
+
+Recall does not ask learners to enter a confidence rating. It estimates confidence from their performance on distinct quiz questions for each topic.
+
+- An exact question contributes once to a topic's score. Re-answering it updates that question's latest outcome; it does not add another attempt or correct answer.
+- A topic stays at **Beginner** until there are at least 3 distinct answered questions. It can reach **Advanced** only after at least 5.
+- Once those minimums are met, accuracy below 40% maps to Beginner, 40-74% to Intermediate, and 75% or higher to Advanced.
+- The learner's topic levels are sent with generation and refinement requests. Low-confidence topics receive easy, fundamentals-first questions and 4-6 sentence flashcard answers and quiz explanations. Intermediate topics receive mostly medium questions; advanced topics receive medium or hard application questions. Wrong-choice feedback is prompted at 3-5 plain-language sentences at every level.
+- Up to 12 previously answered question stems per topic are supplied as anti-repeat guidance for newly generated questions. The model is asked to avoid repeating or lightly rewording them. AI output can vary, but repeating an exact question does not increase its confidence score.
+- The dashboard reports distinct-question accuracy and shows each topic's current level.
+
+Missed questions are scheduled for review after 10 minutes. Correct reviews move through 1, 3, 7, 14, and 30 day intervals. Learners can also reset their progress from the dashboard.
+
+## Refine behavior
+
+**Refine the current set** sends the current study set and the requested change to the model. The model is instructed to return the complete updated set, preserve unchanged blocks and questions, and modify only what the request calls for. For example, asking for longer answers should leave the questions alone; asking for harder questions should change the quiz difficulty or question content. The previous set is available through **Undo last refine**. If the model omits the existing summary, Recall restores it unless the instruction explicitly asks to remove, delete, drop, or omit the summary.
+
+
+
+`optionFeedback` has one entry per answer choice. Its entry for the correct answer is an empty string; each wrong-choice entry explains that distractor. The full prompt and validation rules are in [`server/prompt.js`](server/prompt.js) and [`src/lib/validateResult.js`](src/lib/validateResult.js).
+
+## Validation and error handling
+
+- The response is parsed as JSON and validated by block type before it reaches the study UI. A Markdown JSON fence is stripped if the model adds one.
+- Invalid blocks are skipped individually so one malformed card does not discard valid cards. Recall shows a notice with the number skipped. If no valid block remains, it shows an error and retry action.
+- Empty or malformed responses, provider/network errors, rate limits, oversized input, and timeouts produce user-facing error states. Provider details and keys are not sent to the browser.
+- A slow-request message appears after 6 seconds; requests are aborted after 30 seconds. Starting another request aborts the previous one so an older response cannot replace newer content.
+- The response simulator at `?debug=1` exercises malformed, wrong-shape, empty, slow, and failed responses.
+
+
 ### Request and response steps
 
 1. **Collect the study request.** The learner enters notes or a topic. A refinement also includes the current complete study set and the requested edit.
@@ -116,70 +185,6 @@ tests/                   Component and logic tests
 .env.example             Local configuration template
 README.md
 ```
-
-## How personalization works
-
-Recall does not ask learners to enter a confidence rating. It estimates confidence from their performance on distinct quiz questions for each topic.
-
-- An exact question contributes once to a topic's score. Re-answering it updates that question's latest outcome; it does not add another attempt or correct answer.
-- A topic stays at **Beginner** until there are at least 3 distinct answered questions. It can reach **Advanced** only after at least 5.
-- Once those minimums are met, accuracy below 40% maps to Beginner, 40-74% to Intermediate, and 75% or higher to Advanced.
-- The learner's topic levels are sent with generation and refinement requests. Low-confidence topics receive easy, fundamentals-first questions and 4-6 sentence flashcard answers and quiz explanations. Intermediate topics receive mostly medium questions; advanced topics receive medium or hard application questions. Wrong-choice feedback is prompted at 3-5 plain-language sentences at every level.
-- Up to 12 previously answered question stems per topic are supplied as anti-repeat guidance for newly generated questions. The model is asked to avoid repeating or lightly rewording them. AI output can vary, but repeating an exact question does not increase its confidence score.
-- The dashboard reports distinct-question accuracy and shows each topic's current level.
-
-Missed questions are scheduled for review after 10 minutes. Correct reviews move through 1, 3, 7, 14, and 30 day intervals. Learners can also reset their progress from the dashboard.
-
-## Refine behavior
-
-**Refine the current set** sends the current study set and the requested change to the model. The model is instructed to return the complete updated set, preserve unchanged blocks and questions, and modify only what the request calls for. For example, asking for longer answers should leave the questions alone; asking for harder questions should change the quiz difficulty or question content. The previous set is available through **Undo last refine**. If the model omits the existing summary, Recall restores it unless the instruction explicitly asks to remove, delete, drop, or omit the summary.
-
-## Generated study-set format
-
-The model returns JSON with a title and a list of typed blocks. Recall validates each block before displaying it.
-
-```json
-{
-  "title": "Photosynthesis",
-  "blocks": [
-    {
-      "type": "flashcard",
-      "id": "c1",
-      "topic": "Light reactions",
-      "difficulty": "easy",
-      "question": "Where do the light reactions happen?",
-      "answer": "They happen in the thylakoid membranes inside chloroplasts."
-    },
-    {
-      "type": "mcq",
-      "id": "q1",
-      "topic": "Calvin cycle",
-      "difficulty": "medium",
-      "question": "Which molecule is fixed during the Calvin cycle?",
-      "options": ["Oxygen", "Carbon dioxide", "Nitrogen", "Water"],
-      "correctIndex": 1,
-      "explanation": "Carbon dioxide supplies the carbon used to build sugar.",
-      "optionFeedback": [
-        "Oxygen is released in the light reactions, not fixed here.",
-        "",
-        "Nitrogen fixation is a separate process.",
-        "Water is split during the light reactions."
-      ]
-    },
-    { "type": "summary", "id": "s1", "points": ["Key idea one", "Key idea two"] }
-  ]
-}
-```
-
-`optionFeedback` has one entry per answer choice. Its entry for the correct answer is an empty string; each wrong-choice entry explains that distractor. The full prompt and validation rules are in [`server/prompt.js`](server/prompt.js) and [`src/lib/validateResult.js`](src/lib/validateResult.js).
-
-## Validation and error handling
-
-- The response is parsed as JSON and validated by block type before it reaches the study UI. A Markdown JSON fence is stripped if the model adds one.
-- Invalid blocks are skipped individually so one malformed card does not discard valid cards. Recall shows a notice with the number skipped. If no valid block remains, it shows an error and retry action.
-- Empty or malformed responses, provider/network errors, rate limits, oversized input, and timeouts produce user-facing error states. Provider details and keys are not sent to the browser.
-- A slow-request message appears after 6 seconds; requests are aborted after 30 seconds. Starting another request aborts the previous one so an older response cannot replace newer content.
-- The response simulator at `?debug=1` exercises malformed, wrong-shape, empty, slow, and failed responses.
 
 ## Run locally
 
